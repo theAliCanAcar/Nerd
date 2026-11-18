@@ -51,7 +51,7 @@ impl FileSearch {
         let (tx, rx) = std::sync::mpsc::channel();
         let ctx = ctx.clone();
         let _ = std::thread::Builder::new()
-            .name("crawn-find-path".into())
+            .name("nerd-find-path".into())
             .spawn(move || {
                 let _ = tx.send((query.clone(), kind, find_paths(&query, kind)));
                 ctx.request_repaint();

@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::process::{Command, Stdio};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use eframe::egui::{self, Context, RichText, ScrollArea, TextEdit, Ui};
@@ -64,43 +63,12 @@ pub fn failure_line(output: &str) -> Option<String> {
     })
 }
 
-pub fn twin(command: &str) -> String {
-    let dir = std::env::temp_dir().join(format!("crawn-twin-{}", std::process::id()));
-    if std::fs::create_dir_all(&dir).is_err() {
-        return "Could not create a temporary folder for the twin.".into();
-    }
-    let result = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .current_dir(&dir)
-        .stdin(Stdio::null())
-        .output();
-    let _ = std::fs::remove_dir_all(&dir);
-    match result {
-        Ok(output) => {
-            let mut text = String::from_utf8_lossy(&output.stdout).chars().take(4000).collect::<String>();
-            let err = String::from_utf8_lossy(&output.stderr);
-            if !err.trim().is_empty() {
-                text.push('\n');
-                text.push_str(&err.chars().take(1500).collect::<String>());
-            }
-            format!(
-                "Twin folder deleted. Your project was not changed. exit {}\n\n{text}",
-                output.status.code().unwrap_or(-1)
-            )
-        }
-        Err(error) => format!("Could not start the twin shell: {error}"),
-    }
-}
-
 #[derive(Default)]
 pub struct Labs {
     pub open: bool,
     meaning: String,
     meaning_job: Option<Receiver<Result<String, String>>>,
     meaning_answer: Option<String>,
-    twin_job: Option<Receiver<String>>,
-    twin_answer: Option<String>,
     diff_left: usize,
     diff_right: usize,
     pub paste_job: Option<Receiver<Result<String, String>>>,
@@ -118,7 +86,7 @@ impl Labs {
         failure: Option<&str>,
     ) {
         ui.heading("Tools");
-        ui.label("These tools read the current terminal. They do not change files unless you press Run.");
+        ui.label("These tools read the current terminal. They do not run commands or change files.");
         ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
             section(ui, "Plain-language history");
             if history.is_empty() {
@@ -138,27 +106,8 @@ impl Labs {
             if let Some(answer) = &self.meaning_answer {
                 ui.label(answer);
             }
-            section(ui, "Shell twin");
-            ui.label("Runs the last plain-language command in a temporary folder, then deletes that folder.");
-            if ui.add_enabled(self.twin_job.is_none() && history.last().is_some(), egui::Button::new("Run twin")).clicked() {
-                if let Some((_, command)) = history.last() {
-                    self.start_twin(ui.ctx(), command.clone());
-                }
-            }
-            if self.twin_job.is_some() {
-                ui.spinner();
-            }
-            if let Some(job) = &self.twin_job {
-                if let Ok(answer) = job.try_recv() {
-                    self.twin_answer = Some(answer);
-                }
-            }
-            if self.twin_answer.is_some() {
-                self.twin_job = None;
-            }
-            if let Some(answer) = &self.twin_answer {
-                ui.monospace(answer);
-            }
+            section(ui, "Commands");
+            ui.label("Nerd does not replay a command in a side folder. A temporary directory would not contain the command, and deleting that folder would not undo it.");
             section(ui, "Two sessions");
             if sessions.len() >= 2 {
                 ui.horizontal(|ui| {
@@ -228,17 +177,6 @@ impl Labs {
         self.meaning_answer = None;
         self.meaning_job = Some(spawn_model(ctx, route, prompt));
     }
-
-    fn start_twin(&mut self, ctx: &Context, command: String) {
-        let (tx, rx) = mpsc::channel();
-        let ctx = ctx.clone();
-        let _ = std::thread::Builder::new().name("crawn-twin".into()).spawn(move || {
-            let _ = tx.send(twin(&command));
-            ctx.request_repaint();
-        });
-        self.twin_answer = None;
-        self.twin_job = Some(rx);
-    }
 }
 
 fn section(ui: &mut Ui, title: &str) {
@@ -270,7 +208,7 @@ fn poll_text(job: &mut Option<Receiver<Result<String, String>>>, slot: &mut Opti
 fn spawn_model(ctx: &Context, route: ai::Route, prompt: String) -> Receiver<Result<String, String>> {
     let (tx, rx) = mpsc::channel();
     let ctx = ctx.clone();
-    let _ = std::thread::Builder::new().name("crawn-labs".into()).spawn(move || {
+    let _ = std::thread::Builder::new().name("nerd-labs".into()).spawn(move || {
         let _ = tx.send(ai::request(&route, &prompt));
         ctx.request_repaint();
     });

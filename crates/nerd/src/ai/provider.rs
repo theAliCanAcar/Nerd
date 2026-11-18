@@ -31,7 +31,7 @@ pub const PROVIDERS: &[Provider] = &[
     Provider { id: "openrouter", name: "OpenRouter", local: false, ollama: false, endpoint: "https://openrouter.ai/api/v1/chat/completions", docs: "https://openrouter.ai/keys" },
     Provider { id: "openai", name: "OpenAI", local: false, ollama: false, endpoint: "https://api.openai.com/v1/chat/completions", docs: "https://platform.openai.com/api-keys" },
     Provider { id: "gemini", name: "Google Gemini", local: false, ollama: false, endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", docs: "https://aistudio.google.com/apikey" },
-    Provider { id: "vertex", name: "Vertex AI", local: false, ollama: false, endpoint: "https://aiplatform.googleapis.com/v1/projects/PROJECT/locations/us-central1/endpoints/openapi/chat/completions", docs: "https://cloud.google.com/vertex-ai" },
+    Provider { id: "vertex", name: "Vertex AI", local: false, ollama: false, endpoint: "", docs: "https://cloud.google.com/vertex-ai" },
     Provider { id: "groq", name: "Groq", local: false, ollama: false, endpoint: "https://api.groq.com/openai/v1/chat/completions", docs: "https://console.groq.com/keys" },
     Provider { id: "mistral", name: "Mistral", local: false, ollama: false, endpoint: "https://api.mistral.ai/v1/chat/completions", docs: "https://console.mistral.ai" },
     Provider { id: "fireworks", name: "Fireworks.ai", local: false, ollama: false, endpoint: "https://api.fireworks.ai/inference/v1/chat/completions", docs: "https://fireworks.ai/account/api-keys" },
@@ -63,6 +63,7 @@ pub struct Preferences {
     model: String,
     model_lookup: Option<ModelLookup>,
     discovered_models: Option<ModelResult>,
+    keychain_error: Option<String>,
 }
 
 impl Preferences {
@@ -72,6 +73,7 @@ impl Preferences {
             .filter(|id| PROVIDERS.iter().any(|provider| provider.id == id))
             .unwrap_or_else(|| "ollama".into());
         let chosen = provider_by_id(&provider);
+        let (api_key, keychain_error) = load_api_key(storage);
         Self {
             enabled: storage.and_then(|s| s.get_string("ai.enabled")).as_deref() == Some("true"),
             provider,
@@ -79,28 +81,41 @@ impl Preferences {
                 .and_then(|s| s.get_string("ai.endpoint"))
                 .filter(|value| !value.trim().is_empty())
                 .unwrap_or_else(|| chosen.endpoint.into()),
-            api_key: storage
-                .and_then(|s| s.get_string("ai.api_key"))
-                .unwrap_or_default()
-                .chars()
-                .take(400)
-                .collect(),
+            api_key,
             model: storage
                 .and_then(|s| s.get_string("ai.model"))
                 .unwrap_or_default()
                 .chars()
                 .take(128)
                 .collect(),
+            keychain_error,
             ..Self::default()
         }
     }
 
-    pub fn save(&self, storage: &mut dyn Storage) {
+    pub fn save(&mut self, storage: &mut dyn Storage) {
         storage.set_string("ai.enabled", self.enabled.to_string());
         storage.set_string("ai.provider", self.provider.clone());
         storage.set_string("ai.endpoint", self.endpoint.trim().to_owned());
-        storage.set_string("ai.api_key", self.api_key.trim().to_owned());
         storage.set_string("ai.model", self.model.trim().to_owned());
+        let secret = self.api_key.trim();
+        if secret.is_empty() {
+            storage.set_string("ai.api_key", String::new());
+            let _ = write_api_key("");
+            self.keychain_error = None;
+            return;
+        }
+        match write_api_key(secret) {
+            Ok(()) => {
+                storage.set_string("ai.api_key", String::new());
+                self.keychain_error = None;
+            }
+            Err(error) => {
+                self.keychain_error = Some(format!(
+                    "The system keychain did not store the key ({error}). It stays in memory for this session and is not written to the settings file."
+                ));
+            }
+        }
     }
 
     pub fn open_wizard(&mut self) {
@@ -152,7 +167,7 @@ impl Preferences {
                     open_link(provider.docs);
                 }
             } else {
-                ui.label("The key stays in local app settings on this Mac.");
+                ui.label("The key is stored in the system keychain on this computer.");
                 ui.add(TextEdit::singleline(&mut self.api_key).password(true).hint_text("API key").desired_width(360.0));
             }
             ui.add_space(6.0);
@@ -198,7 +213,11 @@ impl Preferences {
             }
         } else {
             ui.label("API key");
+            ui.label("Stored in the system keychain, not in the settings file.");
             ui.add(TextEdit::singleline(&mut self.api_key).password(true).hint_text("API key").desired_width(width.min(360.0)));
+            if let Some(error) = &self.keychain_error {
+                ui.label(RichText::new(error).color(crate::theme::current(ui.ctx()).error));
+            }
         }
         ui.add_space(4.0);
         ui.label("Endpoint");
@@ -241,7 +260,7 @@ impl Preferences {
                 let (tx, rx) = mpsc::channel();
                 let ctx = ui.ctx().clone();
                 match std::thread::Builder::new()
-                    .name("crawn-ollama-models".into())
+                    .name("nerd-ollama-models".into())
                     .spawn(move || {
                         let _ = tx.send(installed_models());
                         ctx.request_repaint();
@@ -307,6 +326,55 @@ impl Preferences {
             ollama: provider.ollama,
         })
     }
+}
+
+const KEYCHAIN_SERVICE: &str = "nerd";
+const KEYCHAIN_ACCOUNT: &str = "ai-api-key";
+
+fn load_api_key(storage: Option<&dyn Storage>) -> (String, Option<String>) {
+    let legacy = storage
+        .and_then(|storage| storage.get_string("ai.api_key"))
+        .unwrap_or_default();
+    let legacy: String = legacy.trim().chars().take(400).collect();
+    match read_keychain() {
+        Ok(stored) if !stored.is_empty() => (stored, None),
+        Ok(_) if !legacy.is_empty() => match write_api_key(&legacy) {
+            Ok(()) => (legacy, None),
+            Err(error) => (
+                legacy,
+                Some(format!(
+                    "The system keychain did not store the existing key ({error}). It is still in the old settings file until that succeeds."
+                )),
+            ),
+        },
+        Ok(_) => (String::new(), None),
+        Err(_) if legacy.is_empty() => (String::new(), None),
+        Err(error) => (
+            legacy,
+            Some(format!(
+                "The system keychain could not be opened ({error}). The existing key is still in the old settings file."
+            )),
+        ),
+    }
+}
+
+fn read_keychain() -> Result<String, keyring::Error> {
+    match keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)?.get_password() {
+        Ok(value) => Ok(value.chars().take(400).collect()),
+        Err(keyring::Error::NoEntry) => Ok(String::new()),
+        Err(error) => Err(error),
+    }
+}
+
+fn write_api_key(secret: &str) -> Result<(), keyring::Error> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)?;
+    if secret.is_empty() {
+        return match entry.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(error) => Err(error),
+        };
+    }
+    entry.set_password(secret)
 }
 
 fn provider_by_id(id: &str) -> Provider {

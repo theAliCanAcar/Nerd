@@ -15,7 +15,14 @@ if ! command -v cargo >/dev/null 2>&1; then
     echo "cargo was not found. Install Rust from https://rustup.rs/ and open a new terminal." >&2
     exit 1
 fi
-cargo build --locked --package nerd --target-dir target
+
+profile="debug"
+release_flag=()
+if [[ "${1:-}" == "--release" ]]; then
+    profile="release"
+    release_flag=(--release)
+fi
+cargo build --locked --package nerd --target-dir target "${release_flag[@]}"
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
@@ -32,7 +39,7 @@ iconutil -c icns "$iconset" -o "$scratch/Nerd.icns"
 
 app="target/Nerd.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-install -m 755 target/debug/nerd "$app/Contents/MacOS/nerd"
+install -m 755 "target/${profile}/nerd" "$app/Contents/MacOS/nerd"
 install -m 644 platform/macos/Info.plist "$app/Contents/Info.plist"
 install -m 644 "$scratch/Nerd.icns" "$app/Contents/Resources/Nerd.icns"
 echo "Open $PWD/$app"

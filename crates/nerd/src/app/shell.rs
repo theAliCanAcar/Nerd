@@ -17,18 +17,6 @@ impl TerminalApp {
                     ui.painter().rect_filled(mark, 4, palette.accent_surface);
                     chrome::draw_glasses(ui.painter(), mark.center(), 0.85, palette.accent);
                     ui.label(RichText::new("Nerd").font(theme::emphasis(22.0)));
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        let credit = ui.add(
-                            egui::Label::new(RichText::new("by crawn.ai").size(11.0).color(palette.muted))
-                                .sense(Sense::click()),
-                        );
-                        if credit.hovered() {
-                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        }
-                        if credit.clicked() {
-                            ai::open_link("https://crawn.ai");
-                        }
-                    });
                 });
                 ui.add_space(17.0);
                 let new = ui
@@ -413,13 +401,6 @@ impl TerminalApp {
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 6.0;
-                    let discover = Button::new(RichText::new("Discover Crawn.ai").size(12.0).color(palette.action_text))
-                        .fill(palette.action)
-                        .corner_radius(4.0)
-                        .min_size(Vec2::new(0.0, 26.0));
-                    if ui.add(discover).clicked() {
-                        self.discover_open = true;
-                    }
                     ui.add_space(4.0);
                     for (label, keys, action) in [
                         ("Ask AI", shortcut("Shift+Space", "Shift+Space"), Action::AskAi),

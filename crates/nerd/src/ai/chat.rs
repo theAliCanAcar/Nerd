@@ -246,7 +246,7 @@ impl Panel {
         let (tx, rx) = mpsc::channel();
         let ctx = ctx.clone();
         let worker = std::thread::Builder::new()
-            .name("crawn-ollama".into())
+            .name("nerd-ollama".into())
             .spawn(move || {
                 let _ = tx.send(request(&route, &prompt));
                 ctx.request_repaint();
@@ -409,7 +409,7 @@ impl ShellPrompt {
         let (tx, rx) = mpsc::channel();
         let ctx = ctx.clone();
         let worker = std::thread::Builder::new()
-            .name("crawn-ollama-prompt".into())
+            .name("nerd-ollama-prompt".into())
             .spawn(move || {
                 let _ = tx.send(request(&route, &prompt));
                 ctx.request_repaint();
@@ -814,7 +814,7 @@ impl CodeExamples {
         let (tx, rx) = mpsc::channel();
         let ctx = ctx.clone();
         match std::thread::Builder::new()
-            .name("crawn-ollama-examples".into())
+            .name("nerd-ollama-examples".into())
             .spawn(move || {
                 let _ = tx.send(request(&route, &prompt));
                 ctx.request_repaint();

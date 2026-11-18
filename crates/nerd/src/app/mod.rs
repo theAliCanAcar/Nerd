@@ -107,7 +107,6 @@ pub struct TerminalApp {
     search: Option<Search>,
     paste: Option<String>,
     shortcuts_open: bool,
-    discover_open: bool,
     settings_open: bool,
     settings_page: SettingsPage,
     rename: Option<String>,
@@ -178,7 +177,6 @@ impl TerminalApp {
             search: None,
             paste: None,
             shortcuts_open: false,
-            discover_open: false,
             settings_open: false,
             settings_page: SettingsPage::default(),
             rename: None,
@@ -245,7 +243,7 @@ impl TerminalApp {
                     let (tx, rx) = std::sync::mpsc::channel();
                     let ctx = ctx.clone();
                     let _ = std::thread::Builder::new()
-                        .name("crawn-phrase".into())
+                        .name("nerd-phrase".into())
                         .spawn(move || {
                             let _ = tx.send(ai::request(&route, &prompt));
                             ctx.request_repaint();
@@ -522,7 +520,7 @@ impl eframe::App for TerminalApp {
             self.provider_checked = true;
             let (tx, rx) = std::sync::mpsc::channel();
             let ctx = ctx.clone();
-            let _ = std::thread::Builder::new().name("crawn-ollama-probe".into()).spawn(move || {
+            let _ = std::thread::Builder::new().name("nerd-ollama-probe".into()).spawn(move || {
                 let _ = tx.send(ai::ollama_reachable());
                 ctx.request_repaint();
             });
@@ -538,7 +536,6 @@ impl eframe::App for TerminalApp {
         }
         let modal_open = self.paste.is_some()
             || self.shortcuts_open
-            || self.discover_open
             || self.file_search.open
             || self.settings_open
             || self.read_output.is_some()

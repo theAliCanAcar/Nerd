@@ -275,7 +275,6 @@ impl TerminalApp {
             || self.search.is_some()
             || self.paste.is_some()
             || self.shortcuts_open
-            || self.discover_open
             || self.file_search.open
             || self.settings_open
             || self.read_output.is_some()
@@ -771,40 +770,6 @@ impl TerminalApp {
                 self.file_search.open = false;
             } else if close {
                 self.file_search.open = false;
-            }
-        }
-        if self.discover_open {
-            let mut close = false;
-            let mut visit = false;
-            let palette = theme::current(ctx);
-            let response = Modal::new(egui::Id::new("discover crawn")).show(ctx, |ui| {
-                ui.set_width(420.0);
-                ui.horizontal(|ui| {
-                    let (mark, _) = ui.allocate_exact_size(egui::vec2(46.0, 28.0), Sense::hover());
-                    chrome::draw_glasses(ui.painter(), mark.center(), 1.35, palette.accent);
-                    ui.vertical(|ui| {
-                        ui.heading("Nerd");
-                        ui.label(RichText::new("by Ali Can Acar").color(palette.muted));
-                    });
-                });
-                ui.add_space(8.0);
-                ui.label("Nerd is a native terminal app built by Ali Can Acar. You run the shell, you see the command, and you approve what cannot be undone. It runs locally without requiring an account or API key.");
-                ui.add_space(8.0);
-                ui.label("Crawn.ai is another product he created: autonomous development for an app you keep. The plan, the diff, and your yes.");
-                ui.add_space(14.0);
-                ui.horizontal(|ui| {
-                    let get_in = Button::new(RichText::new("Open Crawn.ai").color(palette.action_text))
-                        .fill(palette.action)
-                        .corner_radius(4.0);
-                    visit = ui.add(get_in).clicked();
-                    close = ui.button("Close").clicked();
-                });
-            });
-            if visit {
-                ai::open_link("https://crawn.ai");
-            }
-            if close || response.should_close() {
-                self.discover_open = false;
             }
         }
         if self.shortcuts_open {

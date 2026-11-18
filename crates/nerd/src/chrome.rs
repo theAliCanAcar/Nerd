@@ -209,11 +209,4 @@ pub fn brand(ui: &mut Ui) {
         crate::theme::emphasis(16.0),
         palette.foreground,
     );
-    painter.text(
-        rect.left_top() + vec2(54.0, 30.0),
-        egui::Align2::LEFT_TOP,
-        "by Ali Can Acar",
-        FontId::proportional(12.0),
-        palette.muted,
-    );
 }

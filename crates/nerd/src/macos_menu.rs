@@ -30,7 +30,7 @@ pub fn install(ctx: &Context) -> muda::Result<Menu> {
                 Some(AboutMetadata {
                     name: Some("Nerd".into()),
                     version: Some(env!("CARGO_PKG_VERSION").into()),
-                    credits: Some("Built by Ali Can Acar. Crawn.ai is another product he created.".into()),
+                    credits: None,
                     ..Default::default()
                 }),
             ),

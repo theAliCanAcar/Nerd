@@ -1,15 +1,9 @@
-# Project implementation status
+# Implementation status
 
-This review maps the current development build to the planned phases.
+This note describes the current build. See [compatibility checks](compatibility.md) for the manual pass.
 
-| Phase | Available in this build | Remaining |
+| Area | In this build | Still ahead |
 | --- | --- | --- |
-| 0 · Feasibility and design | Rust/wgpu desktop build, real PTY, Nerd styling, original development icon, MIT license | Approved brand assets, measured performance baseline, interactive Linux and Windows qualification |
-| 1 · Terminal alpha | Tabbed shells, session renaming, scrollback search, clipboard, paste confirmation, keyboard command palette, macOS menu, accessible visible-output view, persisted appearance and cursor settings, compact layout | Split panes, multiple windows, layout restore, shell profiles and hooks, configurable keybindings, richer font and protocol support, full accessibility and terminal compatibility validation |
-| 2 · AI and Guardian | Opt-in Ollama, installed-model picker, question and optional terminal context preview, bounded requests, text responses that can be copied | Cloud and compatible provider adapters, BYOK secret storage, capability discovery, streaming and cancellation, Guardian and execution policies, provider and security matrix |
-| 3 · Agent Arena | | Agent adapters, isolation, worktrees, comparisons, test results, and approval flow |
-| 4 · Time Machine and Project Brain | | Opt-in structured history, cited project memory, evidence export, and recovery previews |
-| 5 · Live Doctor and polish | | Service health, correlated logs, diagnostics, platform packaging, and internationalization |
-| 6 · Stable release | | Cross-platform runtime, accessibility and security reviews, release distribution, and upgrade verification |
-
-See [compatibility coverage](compatibility.md) for the checks that back the terminal claims.
+| Terminal | Local PTY, GPU window, tabs, splits, scrollback search, clipboard, paste confirmation, command palette, macOS menu, light and dark appearance | Multiple windows, layout restore, shell profiles, configurable keybindings, fuller protocol and accessibility checks |
+| Ask AI | Off until you turn it on. A local model, or a key you paste. The text to send is shown before it leaves the machine. A command is not run until you approve it. A pasted key is stored in the system keychain. | Streaming and cancellation |
+| Checks | The Rust workspace builds and tests on macOS, Windows, and Ubuntu in CI. CI does not open the desktop window. | Interactive Linux and Windows desktop qualification |
